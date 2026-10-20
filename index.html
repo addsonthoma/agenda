@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#F5BE28">
+  <title>Agenda</title>
+  <link rel="icon" href="icone.png">
+  <link rel="apple-touch-icon" href="icone-180.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Agenda">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="format-detection" content="telephone=no">
+  <link rel="stylesheet" href="estilo.css">
+</head>
+<body>
+  <div id="app" class="carregando">
+    <aside id="lateral" class="lateral" aria-label="Navegação"></aside>
+    <section id="colcal" class="colcal" aria-label="Calendário"></section>
+    <main id="pagina" class="pagina"></main>
+  </div>
+
+  <div id="veu" class="veu" hidden></div>
+  <section id="editor" class="editor" role="dialog" aria-modal="true" aria-label="Editar pendência" hidden></section>
+  <div id="menu" class="menu" role="menu" hidden></div>
+  <div id="aviso" class="aviso" role="status" aria-live="polite"></div>
+
+  <script src="config-nuvem.js"></script>
+  <script src="datas.js"></script>
+  <script src="ponte.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
