@@ -27,7 +27,7 @@ const Ponte = (() => {
   const agoraLocal = () => { const d = new Date(); return `${Datas.chave(d)}T${Datas.pad(d.getHours())}:${Datas.pad(d.getMinutes())}:${Datas.pad(d.getSeconds())}`; };
   const instante = s => { if (!s) return 0; const t = Date.parse(/[zZ]|[+-]\d\d:?\d\d$/.test(s) ? s : s); return isNaN(t) ? 0 : t; };
   const CAMPOS = ['titulo', 'nota', 'data', 'hora', 'categoria', 'prioridade', 'lembrete', 'ordem', 'feita', 'feita_em',
-    'criada_em', 'atualizada_em', 'passou_por'];
+    'criada_em', 'atualizada_em', 'passou_por', 'pessoa'];
 
   /* ============================================================ motor local */
   function criarMotor(chave, { demo = false } = {}) {
@@ -74,6 +74,7 @@ const Ponte = (() => {
       t.atualizada_em = t.atualizada_em || carimbo();
       t.passou_por = t.passou_por || [];
       t.ordem = t.ordem ?? 0;
+      t.pessoa = String(t.pessoa || '').trim().toLowerCase().slice(0, 40);
       return mudouCampo;
     }
     e.tarefas.forEach(normalizar);
@@ -100,7 +101,7 @@ const Ponte = (() => {
       carregar: async () => { if (e.controle.ultimo_dia !== Datas.hoje() || e.tarefas.some(t => !t.feita && t.data < Datas.hoje())) adiante(); return copia(e); },
       salvar_tarefa: async d => {
         let t = d.id && achar(d.id);
-        const campos = ['titulo', 'nota', 'data', 'hora', 'categoria', 'prioridade', 'lembrete', 'ordem'];
+        const campos = ['titulo', 'nota', 'data', 'hora', 'categoria', 'prioridade', 'lembrete', 'ordem', 'pessoa'];
         if (!t) {
           t = {};
           for (const k of campos) if (k in d) t[k] = d[k];
@@ -203,6 +204,8 @@ const Ponte = (() => {
           if (c.excluidas[r.id] && instante(c.excluidas[r.id]) >= q) continue;
           if (!local || q > instante(local.atualizada_em)) {
             const novo = Object.assign({}, r.dados, { id: r.id, atualizada_em: r.atualizada_em });
+            // aparelho com versão antiga (sem abas) não manda "pessoa": não tira da aba
+            if (local && !('pessoa' in r.dados) && local.pessoa) novo.pessoa = local.pessoa;
             normalizar(novo);
             if (local) Object.keys(local).forEach(k => delete local[k]), Object.assign(local, novo); else e.tarefas.push(novo);
             delete c.sujo.tarefas[r.id]; delete c.excluidas[r.id]; m = true;

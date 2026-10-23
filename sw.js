@@ -1,5 +1,5 @@
 /* Service worker: abre a agenda mesmo sem internet (os dados ficam no aparelho e sincronizam depois). */
-const VERSAO = 'agenda-20261020141136';
+const VERSAO = 'agenda-20261022233232';
 const ARQUIVOS = ['./', 'index.html', 'estilo.css', 'datas.js', 'ponte.js', 'app.js', 'config-nuvem.js',
   'icone.png', 'icone-192.png', 'icone-512.png', 'manifest.webmanifest'];
 

@@ -64,6 +64,13 @@ const S = {
   arrastando: null,
 };
 
+/* abas: a agenda do Addson e as da equipe (pendências lançadas pelo JARVIS ou à mão) */
+const PESSOAS = [['', 'Minha'], ['henrique', 'Henrique'], ['rodrigues', 'Rodrigues'], ['aline', 'Aline']];
+S.pessoa = lerLocal('agenda.pessoa', '');
+if (!PESSOAS.some(p => p[0] === S.pessoa)) S.pessoa = '';
+const nomePessoa = id => (PESSOAS.find(p => p[0] === (id || '')) || [, id])[1];
+const tarefas = () => S.e.tarefas.filter(t => (t.pessoa || '') === S.pessoa);
+
 const cat = id => S.e.categorias.find(c => c.id === id) || { id, nome: '—', cor: '#8E8E93' };
 const prio = id => S.e.prioridades.find(p => p.id === id) || { id, nome: '—', cor: '#8E8E93' };
 const prioIdx = id => { const i = S.e.prioridades.findIndex(p => p.id === id); return i < 0 ? 99 : i; };
@@ -79,11 +86,11 @@ function ordenar(lista) {
     return prioIdx(a.prioridade) - prioIdx(b.prioridade) || hora(a).localeCompare(hora(b)) || a.ordem - b.ordem;
   });
 }
-const doDia = d => S.e.tarefas.filter(t => t.data === d);
+const doDia = d => tarefas().filter(t => t.data === d);
 const abertasDoDia = d => ordenar(doDia(d).filter(t => !t.feita && passaFiltro(t)));
 const feitasDoDia = d => doDia(d).filter(t => t.feita && passaFiltro(t))
   .sort((a, b) => String(b.feita_em).localeCompare(String(a.feita_em)));
-const passaramNoDia = d => S.e.tarefas.filter(t => t.passou_por.includes(d) && passaFiltro(t));
+const passaramNoDia = d => tarefas().filter(t => t.passou_por.includes(d) && passaFiltro(t));
 
 function modo() {
   if (matchMedia('(max-width: 599px)').matches) return 'compacto';
@@ -148,8 +155,8 @@ function autoAltura(el) { el.style.height = 'auto'; el.style.height = el.scrollH
 /* ================================================================ lateral */
 function htmlLateral() {
   const abertasHoje = doDia(S.hoje).filter(t => !t.feita).length;
-  const futuras = S.e.tarefas.filter(t => t.data > S.hoje && !t.feita).length;
-  const abertas = S.e.tarefas.filter(t => !t.feita);
+  const futuras = tarefas().filter(t => t.data > S.hoje && !t.feita).length;
+  const abertas = tarefas().filter(t => !t.feita);
   const navItem = (vista, icone, nome, cont) =>
     `<button class="nav-item ${S.vista === vista && !(vista === 'dia' && S.dia !== S.hoje) ? 'on' : ''}" data-ir="${vista}">
       ${ic(icone)}<span>${nome}</span>${cont !== undefined ? `<span class="cont">${cont || ''}</span>` : ''}</button>`;
@@ -256,14 +263,23 @@ function chipFiltro() {
     <button data-acao="limpar-filtro" aria-label="Limpar filtro">${ic('x', 'peq')}</button></div>`;
 }
 
+function htmlAbasPessoas() {
+  return `<div class="segmento abas-pessoas" role="tablist" aria-label="De quem é a agenda">${PESSOAS.map(([id, nome]) => {
+    const n = S.e.tarefas.filter(t => (t.pessoa || '') === id && !t.feita && t.data <= S.hoje).length;
+    return `<button role="tab" class="${S.pessoa === id ? 'on' : ''}" aria-selected="${S.pessoa === id}" data-pessoa="${id}">
+      ${esc(nome)}${n ? `<span class="cont-aba">${n}</span>` : ''}</button>`;
+  }).join('')}</div>`;
+}
+
 function htmlPagina(m) {
   const topo = (m !== 'amplo' || S.vista === 'config') ? barraTopo(m) : '';
+  const abas = S.vista === 'config' ? '' : htmlAbasPessoas();
   switch (S.vista) {
-    case 'proximos': return topo + htmlProximos();
-    case 'historico': return topo + htmlHistorico();
+    case 'proximos': return topo + abas + htmlProximos();
+    case 'historico': return topo + abas + htmlHistorico();
     case 'config': return topo + htmlConfig();
-    case 'mes': return topo + htmlColcal(true);
-    default: return topo + htmlDia();
+    case 'mes': return topo + abas + htmlColcal(true);
+    default: return topo + abas + htmlDia();
   }
 }
 
@@ -319,7 +335,7 @@ function htmlDia() {
 function htmlRapida() {
   return `<div class="rapida">
     <label class="rapida-caixa">${ic('plus')}
-      <input id="rapida" value="${esc(S.rapida)}" placeholder="Nova pendência" autocomplete="off" aria-label="Nova pendência" enterkeyhint="done">
+      <input id="rapida" value="${esc(S.rapida)}" placeholder="${S.pessoa ? 'Nova pendência para ' + esc(nomePessoa(S.pessoa)) : 'Nova pendência'}" autocomplete="off" aria-label="Nova pendência" enterkeyhint="done">
       ${Reconhecimento ? `<button type="button" class="bt-icone mic" id="bt-mic" data-acao="mic" title="Ditar" aria-label="Ditar pendência">${ic('mic')}</button>` : ''}
       <kbd>Enter</kbd></label>
     <div class="previa" id="previa">${htmlPrevia()}</div>
@@ -380,7 +396,7 @@ function vazio(icone, titulo, texto) {
 
 /* ---------------------------------------------------------------- próximos */
 function htmlProximos() {
-  const futuras = S.e.tarefas.filter(t => t.data > S.hoje && !t.feita && passaFiltro(t));
+  const futuras = tarefas().filter(t => t.data > S.hoje && !t.feita && passaFiltro(t));
   const dias = [...new Set(futuras.map(t => t.data))].sort();
   return `<div class="cab-dia"><div class="tit"><h1>Próximos</h1>
       <div class="sub">${plural(futuras.length, 'pendência agendada', 'pendências agendadas')}</div></div></div>
@@ -408,7 +424,7 @@ function htmlHistorico() {
 
   if (q) {
     const alvo = Datas.semAcento(q);
-    const achadas = S.e.tarefas.filter(t => Datas.semAcento(t.titulo + ' ' + t.nota).includes(alvo))
+    const achadas = tarefas().filter(t => Datas.semAcento(t.titulo + ' ' + t.nota).includes(alvo))
       .sort((a, b) => b.data.localeCompare(a.data));
     return `<div class="cab-dia"><div class="tit"><h1>Busca</h1><div class="sub">${plural(achadas.length, 'resultado')} para “${esc(q)}”</div></div></div>
       ${campo}
@@ -422,15 +438,15 @@ function htmlHistorico() {
   }
 
   const dias = new Set();
-  for (const t of S.e.tarefas) {
+  for (const t of tarefas()) {
     if (t.data < S.hoje && t.feita) dias.add(t.data);
     for (const d of t.passou_por) if (d < S.hoje) dias.add(d);
   }
   const lista = [...dias].sort().reverse();
   const limite7 = Datas.somar(S.hoje, -7);
-  const feitas7 = S.e.tarefas.filter(t => t.feita && t.feita_em && t.feita_em.slice(0, 10) >= limite7).length;
-  const adiadas7 = S.e.tarefas.reduce((s, t) => s + t.passou_por.filter(d => d >= limite7).length, 0);
-  const abertas = S.e.tarefas.filter(t => !t.feita && t.data <= S.hoje).length;
+  const feitas7 = tarefas().filter(t => t.feita && t.feita_em && t.feita_em.slice(0, 10) >= limite7).length;
+  const adiadas7 = tarefas().reduce((s, t) => s + t.passou_por.filter(d => d >= limite7).length, 0);
+  const abertas = tarefas().filter(t => !t.feita && t.data <= S.hoje).length;
 
   return `<div class="cab-dia"><div class="tit"><h1>Histórico</h1><div class="sub">O que foi feito e o que passou adiante, dia a dia</div></div></div>
     ${campo}
@@ -691,7 +707,7 @@ function ligarToqueLongo() {
 function abrirEditor(t) {
   S.edit = t ? JSON.parse(JSON.stringify(t)) : {
     titulo: '', nota: '', data: S.dia < S.hoje ? S.hoje : S.dia, hora: '', categoria: S.filtro.cat || S.e.categorias[0].id,
-    prioridade: S.filtro.prio || prioPadrao(), lembrete: null, passou_por: [], feita: false,
+    prioridade: S.filtro.prio || prioPadrao(), lembrete: null, passou_por: [], feita: false, pessoa: S.pessoa,
   };
   S.edit._original = t ? t.data : null;
   renderEditor();
@@ -732,6 +748,10 @@ function renderEditor() {
         ${S.e.categorias.map(c => `<button class="opcao ${t.categoria === c.id ? 'on' : ''}" style="--c:${c.cor}" data-ed-cat="${c.id}"><i style="background:${c.cor}"></i>${esc(c.nome)}</button>`).join('')}
       </div></div>
 
+      <div class="ed-campo"><div class="rotulo">Agenda de quem</div><div class="opcoes">
+        ${PESSOAS.map(([id, nome]) => `<button class="opcao ${(t.pessoa || '') === id ? 'on' : ''}" style="--c:var(--destaque, #F5BE28)" data-ed-pessoa="${id}">${esc(nome)}</button>`).join('')}
+      </div></div>
+
       <div class="ed-campo"><div class="rotulo">Lembrete no computador</div>
         <select class="campo" id="ed-lembrete">${LEMBRETES.map(([v, n]) => `<option value="${v}" ${t.lembrete === v ? 'selected' : ''}>${n}</option>`).join('')}</select>
         ${!t.hora && t.lembrete !== null ? `<div class="dica">Sem horário: o aviso usa ${S.e.config.hora_base_sem_horario} como referência.</div>` : ''}
@@ -770,7 +790,7 @@ async function salvarEditor() {
   if (!t.titulo.trim()) { erro.textContent = 'Escreva o que precisa ser feito.'; $('#ed-titulo').focus(); return; }
   if (!t.data) { erro.textContent = 'Escolha uma data.'; return; }
   if (!t.feita && t.data < S.hoje && t.data !== t._original) { erro.textContent = 'Para pendências em aberto, escolha hoje ou uma data futura.'; return; }
-  const dados = { titulo: t.titulo.trim(), nota: t.nota.trim(), data: t.data, hora: t.hora, categoria: t.categoria, prioridade: t.prioridade, lembrete: t.lembrete };
+  const dados = { titulo: t.titulo.trim(), nota: t.nota.trim(), data: t.data, hora: t.hora, categoria: t.categoria, prioridade: t.prioridade, lembrete: t.lembrete, pessoa: t.pessoa || '' };
   if (t.id) dados.id = t.id;
   const mudouDia = t._original !== null && t._original !== t.data;
   fecharEditor();
@@ -807,7 +827,7 @@ async function adicionarRapida() {
   const r = Datas.interpretar(txt, S.dia, S.e.prioridades, S.e.categorias);
   if (!r.titulo) { aviso('Escreva o que precisa ser feito, além da data e hora.'); return; }
   const dados = { titulo: r.titulo.charAt(0).toUpperCase() + r.titulo.slice(1), data: r.data, hora: r.hora || '', prioridade: r.prioridade || S.filtro.prio || prioPadrao(),
-    categoria: r.categoria || S.filtro.cat || S.e.categorias[0].id };
+    categoria: r.categoria || S.filtro.cat || S.e.categorias[0].id, pessoa: S.pessoa };
   S.rapida = '';
   await acao(S.motor.salvar_tarefa(dados));
   if (r.data !== S.dia) aviso(`Agendada para ${Datas.relativo(r.data).toLowerCase()}`, { rotulo: 'Ver', fn: () => irDia(r.data) });
@@ -904,7 +924,7 @@ function aviso(msg, acaoAviso = null, ms = 3500) {
 /* ================================================================ eventos */
 function ligarEventos() {
   document.addEventListener('click', async ev => {
-    const alvo = ev.target.closest('[data-acao],[data-ir],[data-dia],[data-abrir-dia],[data-filtro-cat],[data-filtro-prio],[data-hist],[data-cfg-seg],[data-adicionar],[data-mover],[data-remover],[data-copiar]');
+    const alvo = ev.target.closest('[data-acao],[data-ir],[data-dia],[data-abrir-dia],[data-filtro-cat],[data-filtro-prio],[data-hist],[data-cfg-seg],[data-adicionar],[data-mover],[data-remover],[data-copiar],[data-pessoa]');
     if (!$('#menu').hidden && !ev.target.closest('#menu')) fecharMenu();
     if (!alvo || alvo.closest('#editor') || alvo.closest('#menu')) return;
     const tarefa = alvo.closest('.tarefa');
@@ -912,6 +932,7 @@ function ligarEventos() {
     const d = alvo.dataset;
 
     if (d.copiar !== undefined) { const ok = await S.motor.copiar(d.copiar); aviso(ok ? 'Copiado' : 'Não deu para copiar'); return; }
+    if (d.pessoa !== undefined) { S.pessoa = d.pessoa; gravarLocal('agenda.pessoa', S.pessoa); render(); $('#pagina').scrollTop = 0; return; }
 
     if (d.ir) { if (d.ir === 'dia' && (S.vista === 'dia' || modo() === 'amplo')) { S.dia = S.hoje; S.mes = null; ajustarMes(); } S.vista = d.ir; if (d.ir !== 'historico') S.busca = ''; render(); $('#pagina').scrollTop = 0; return; }
     if (d.dia) { irDia(d.dia); return; }
@@ -972,10 +993,11 @@ function ligarEventos() {
 
   // editor
   $('#editor').addEventListener('click', ev => {
-    const b = ev.target.closest('[data-ed],[data-ed-data],[data-ed-prio],[data-ed-cat]');
+    const b = ev.target.closest('[data-ed],[data-ed-data],[data-ed-prio],[data-ed-cat],[data-ed-pessoa]');
     if (!b) return;
     lerEditor();
     const d = b.dataset;
+    if (d.edPessoa !== undefined) { S.edit.pessoa = d.edPessoa; renderEditor(); return; }
     if (d.edData) { S.edit.data = d.edData; renderEditor(); return; }
     if (d.edPrio) { S.edit.prioridade = d.edPrio; renderEditor(); return; }
     if (d.edCat) { S.edit.categoria = d.edCat; renderEditor(); return; }
